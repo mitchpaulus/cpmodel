@@ -56,7 +56,7 @@ namespace cpmodel
             double[] ys = transformed.Select(observation => observation.Y).ToArray();
             double[,] transformedXs = transformed.Select(observation => observation.Xs).ToList().To2DArray();
 
-            return Regression.MultipleLinearRegression(ys, transformedXs, true);
+            return Regression.MultipleLinearRegression(ys, transformedXs, false);
         }
 
         public (double cp, RegressionOutputs regressionOutputs) Run4P(List<Point> points)
