@@ -15,6 +15,7 @@ namespace cpmodel
             string type = "4";
 
             bool printModelCoords = false;
+            bool printHelp = false;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -27,10 +28,28 @@ namespace cpmodel
                 {
                     printModelCoords = true;
                 }
+                else if (args[i] == "-h" || args[i] == "--help")
+                {
+                    printHelp = true;
+                }
                 else
                 {
                     filename = args[i];
                 }
+            }
+
+            if (printHelp)
+            {
+                Console.Write("cpmodel\n");
+                Console.Write("\n");
+                Console.Write("USAGE:\n");
+                Console.Write("cpmodel <options>... <file> \n");
+                Console.Write("\n");
+                Console.Write("OPTIONS\n");
+                Console.Write("\n");
+                Console.Write(" -p <parameter type>, Model type:  \n");
+                Console.Write(" -c                 , Print model coordinates, not coeffs\n");
+                return;
             }
 
             IEnumerable<string> data;
