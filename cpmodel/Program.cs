@@ -17,6 +17,12 @@ namespace cpmodel
             bool printModelCoords = false;
             bool printHelp = false;
 
+            int skipRows = 0;
+            int xColumn = 0;
+            int yColumn = 1;
+
+            string delimeter = null;
+
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "-p")
@@ -32,6 +38,26 @@ namespace cpmodel
                 {
                     printHelp = true;
                 }
+                else if (args[i] == "--skip")
+                {
+                    skipRows = int.Parse(args[i + 1]);
+                    i++;
+                }
+                else if (args[i] == "--x-col")
+                {
+                    xColumn = int.Parse(args[i + 1]) - 1 ;
+                    i++;
+                }
+                else if (args[i] == "--y-col")
+                {
+                    yColumn = int.Parse(args[i + 1]) - 1;
+                    i++;
+                }
+                else if (args[i] == "-d" || args[i] == "--delimeter")
+                {
+                    delimeter = args[i + 1];
+                    i++;
+                }
                 else
                 {
                     filename = args[i];
@@ -40,15 +66,16 @@ namespace cpmodel
 
             if (printHelp)
             {
-                Console.Write("cpmodel\n");
-                Console.Write("\n");
-                Console.Write("USAGE:\n");
-                Console.Write("cpmodel <options>... <file> \n");
-                Console.Write("\n");
-                Console.Write("OPTIONS\n");
-                Console.Write("\n");
-                Console.Write(" -p <parameter type>, Model type:  \n");
-                Console.Write(" -c                 , Print model coordinates, not coeffs\n");
+                WriteLine("cpmodel");
+                WriteLine("");
+                WriteLine("USAGE:");
+                WriteLine("cpmodel <options>... <file> ");
+                WriteLine("");
+                WriteLine("OPTIONS");
+                WriteLine("");
+                WriteLine(" -p <parameter type>, Model type: 3h, 3h_new, 3c_new, 4");
+                WriteLine(" -c                 , Print model coordinates, not coeffs");
+                WriteLine(" --skip n           , Skip n header records");
                 return;
             }
 
@@ -62,20 +89,27 @@ namespace cpmodel
                 data = File.ReadAllLines(Path.GetFullPath(filename), Encoding.UTF8);
             }
 
-
             XTransformer transformer = new();
 
-            var pointData = data.Select((s, idx) =>
+            List<Point> pointData = data.Skip(skipRows).Select((s, idx) =>
             {
-                var split = s.Split(null);
+                string[] split = s.Split(delimeter);
 
-                if (!double.TryParse(split[0], out double x))
+                var maxSpecifiedColumn = Math.Max(xColumn, yColumn);
+                if (split.Length < maxSpecifiedColumn)
                 {
-                    Console.Error.WriteLine($"Could not parse x value '{split[0]}' on line {idx}.");
+                    Console.Error.Write($"There are fewer columns ({split.Length}) than the max specified column ({maxSpecifiedColumn + 1}).");
                     throw new InvalidDataException("");
                 }
 
-                return new Point(x, double.Parse(split[1]));
+                string xValueString = split[xColumn];
+                if (!double.TryParse(xValueString, out double x))
+                {
+                    Console.Error.Write($"Could not parse x value '{xValueString}' on line {idx}.\n");
+                    throw new InvalidDataException("");
+                }
+
+                return new Point(x, double.Parse(split[yColumn]));
             }).ToList();
 
             ModelRunner runner = new();
@@ -84,16 +118,16 @@ namespace cpmodel
                 (double cp, RegressionOutputs regressionOutputs) = runner.Run3PH(pointData);
                 foreach (double coeff in regressionOutputs.Coeffs)
                 {
-                    Console.WriteLine(coeff);
+                    WriteLine(coeff);
                 }
-                Console.WriteLine(cp);
+                WriteLine(cp);
             }
             else if (type == "3h_new")
             {
                 RegressionOutputs outputs = runner.Run3PHNew(pointData);
                 foreach (double outputsCoeff in outputs.Coeffs)
                 {
-                    Console.WriteLine(outputsCoeff);
+                    WriteLine(outputsCoeff);
                 }
             }
             else if (type == "3c_new")
@@ -105,15 +139,15 @@ namespace cpmodel
                     var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
                     var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
 
-                    Console.WriteLine($"{minXValue}\t{outputs.Coeffs[0]}");
-                    Console.WriteLine($"{outputs.Coeffs[2]}\t{outputs.Coeffs[0]}");
-                    Console.WriteLine($"{maxXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * (maxXValue - outputs.Coeffs[2])}");
+                    WriteLine($"{minXValue}\t{outputs.Coeffs[0]}");
+                    WriteLine($"{outputs.Coeffs[2]}\t{outputs.Coeffs[0]}");
+                    WriteLine($"{maxXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * (maxXValue - outputs.Coeffs[2])}");
                 }
                 else
                 {
                     foreach (double outputsCoeff in outputs.Coeffs)
                     {
-                        Console.WriteLine(outputsCoeff);
+                        WriteLine(outputsCoeff);
                     }
                 }
 
@@ -122,17 +156,32 @@ namespace cpmodel
             {
                 (double cp, RegressionOutputs regOutputs) output = runner.Run4P(pointData);
 
-                Console.WriteLine(output.regOutputs.Coeffs[0]);
-                Console.WriteLine(output.regOutputs.Coeffs[1]);
-                Console.WriteLine(output.regOutputs.Coeffs[2]);
-                Console.WriteLine(output.cp);
+                WriteLine(output.regOutputs.Coeffs[0]);
+                WriteLine(output.regOutputs.Coeffs[1]);
+                WriteLine(output.regOutputs.Coeffs[2]);
+                WriteLine(output.cp);
             }
             else
             {
-                Console.WriteLine($"The model type '{type}' has not been implemented.");
+                WriteLine($"The model type '{type}' has not been implemented.");
                 return;
             }
         }
+
+
+        public static void WriteLine(string text)
+        {
+            if (text.Any() && text.Last() != '\n')
+            {
+                Console.Write($"{text}\n");
+            }
+            else
+            {
+                Console.Write(text);
+            }
+        }
+
+        public static void WriteLine(double value) => WriteLine(value.ToString());
     }
 
     public class XTransformer
