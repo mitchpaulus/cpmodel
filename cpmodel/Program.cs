@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using mlr;
@@ -67,15 +68,21 @@ namespace cpmodel
             if (printHelp)
             {
                 WriteLine("cpmodel");
-                WriteLine("");
+                WriteLine();
                 WriteLine("USAGE:");
                 WriteLine("cpmodel <options>... <file> ");
-                WriteLine("");
+                WriteLine();
                 WriteLine("OPTIONS");
-                WriteLine("");
-                WriteLine(" -p <parameter type>, Model type: 3h, 3h_new, 3c_new, 4");
-                WriteLine(" -c                 , Print model coordinates, not coeffs");
-                WriteLine(" --skip n           , Skip n header records");
+                WriteLine();
+                WriteLine(" -c                   Print model coordinates, not coefficients");
+                WriteLine(" -d <delimiter>       Delimiter to split lines by [whitespace]"      );
+                WriteLine(" -p <parameter type>  Model type: 3h, 3h_new, 3c_new, 4 [4]");
+                WriteLine(" --skip n             Skip n header records [0]");
+                WriteLine(" --x-col <integer col num 1-based>  Set X column number [1]");
+                WriteLine(" --y-col <integer col num 1-based>  Set Y column number [2]");
+                WriteLine();
+                WriteLine("It is assumed that the first column is X and the second column is Y.");
+                WriteLine("The default delimiter is whitespace.");
                 return;
             }
 
@@ -91,6 +98,7 @@ namespace cpmodel
 
             XTransformer transformer = new();
 
+            bool success = true;
             List<Point> pointData = data.Skip(skipRows).Select((s, idx) =>
             {
                 string[] split = s.Split(delimeter);
@@ -99,18 +107,32 @@ namespace cpmodel
                 if (split.Length < maxSpecifiedColumn)
                 {
                     Console.Error.Write($"There are fewer columns ({split.Length}) than the max specified column ({maxSpecifiedColumn + 1}).");
-                    throw new InvalidDataException("");
+                    success = false;
                 }
 
                 string xValueString = split[xColumn];
                 if (!double.TryParse(xValueString, out double x))
                 {
                     Console.Error.Write($"Could not parse x value '{xValueString}' on line {idx}.\n");
-                    throw new InvalidDataException("");
+                    success = false;
                 }
 
                 return new Point(x, double.Parse(split[yColumn]));
             }).ToList();
+
+            if (!success)
+            {
+                Environment.Exit(1);
+                return;
+            }
+
+            // Fail if no data
+            if (!pointData.Any())
+            {
+                Console.Error.Write("No data found.");
+                Environment.Exit(1);
+                return;
+            }
 
             ModelRunner runner = new();
             if (type == "3h")
@@ -125,9 +147,22 @@ namespace cpmodel
             else if (type == "3h_new")
             {
                 RegressionOutputs outputs = runner.Run3PHNew(pointData);
-                foreach (double outputsCoeff in outputs.Coeffs)
+
+                if (printModelCoords)
                 {
-                    WriteLine(outputsCoeff);
+                    var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
+                    var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
+
+                    WriteLine($"{minXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * Math.Min(0, outputs.Coeffs[2] - minXValue)}");
+                    WriteLine($"{outputs.Coeffs[2]}\t{outputs.Coeffs[0]}");
+                    WriteLine($"{maxXValue}\t{outputs.Coeffs[0]}");
+                }
+                else
+                {
+                    foreach (double outputsCoeff in outputs.Coeffs)
+                    {
+                        WriteLine(outputsCoeff);
+                    }
                 }
             }
             else if (type == "3c_new")
@@ -168,20 +203,15 @@ namespace cpmodel
             }
         }
 
+        public static void WriteLine() => Console.Write('\n');
 
         public static void WriteLine(string text)
         {
-            if (text.Any() && text.Last() != '\n')
-            {
-                Console.Write($"{text}\n");
-            }
-            else
-            {
-                Console.Write(text);
-            }
+            if (!text.Any() || text.Last() != '\n') Console.Write($"{text}\n");
+            else Console.Write(text);
         }
 
-        public static void WriteLine(double value) => WriteLine(value.ToString());
+        public static void WriteLine(double value) => WriteLine(value.ToString(CultureInfo.CurrentCulture));
     }
 
     public class XTransformer
@@ -330,7 +360,7 @@ namespace cpmodel
             double bestb1 = 0;
             double bestb2 = 0;
 
-            for (int m = 1; m < n - 1; m++)
+            for (int m = 1; m < n - 2; m++)
             {
                 double b0 = ys.Take(m).Average();
 
