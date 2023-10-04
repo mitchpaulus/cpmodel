@@ -99,22 +99,26 @@ namespace cpmodel
             XTransformer transformer = new();
 
             bool success = true;
+            List<string> errors = new();
             List<Point> pointData = data.Skip(skipRows).Select((s, idx) =>
             {
-                string[] split = s.Split(delimeter);
+                string[] split = delimeter is null ? s.Split() : s.Split(delimeter);
 
                 var maxSpecifiedColumn = Math.Max(xColumn, yColumn);
                 if (split.Length < maxSpecifiedColumn)
                 {
-                    Console.Error.Write($"There are fewer columns ({split.Length}) than the max specified column ({maxSpecifiedColumn + 1}).");
+                    var error = $"There are fewer columns ({split.Length}) than the max specified column ({maxSpecifiedColumn + 1}).\n";
+                    errors.Add(error);
                     success = false;
+                    return new Point(0, 0);
                 }
 
                 string xValueString = split[xColumn];
                 if (!double.TryParse(xValueString, out double x))
                 {
-                    Console.Error.Write($"Could not parse x value '{xValueString}' on line {idx}.\n");
+                    errors.Add($"Could not parse x value '{xValueString}' on line {idx}.\n");
                     success = false;
+                    return new Point(0, 0);
                 }
 
                 return new Point(x, double.Parse(split[yColumn]));
@@ -122,6 +126,16 @@ namespace cpmodel
 
             if (!success)
             {
+                // Print first 10 errors
+                for (int i = 0; i < Math.Min(10, errors.Count); i++)
+                {
+                    Console.Error.Write(errors[i]);
+                }
+                if (errors.Count > 10)
+                {
+                    Console.Error.Write("...\n");
+                }
+
                 Environment.Exit(1);
                 return;
             }
