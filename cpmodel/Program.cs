@@ -70,19 +70,20 @@ namespace cpmodel
                 WriteLine("cpmodel");
                 WriteLine();
                 WriteLine("USAGE:");
-                WriteLine("cpmodel <options>... <file> ");
+                WriteLine("cpmodel <options>... <file>");
                 WriteLine();
                 WriteLine("OPTIONS");
                 WriteLine();
                 WriteLine(" -c                   Print model coordinates, not coefficients");
                 WriteLine(" -d <delimiter>       Delimiter to split lines by [whitespace]"      );
-                WriteLine(" -p <parameter type>  Model type: 3h, 3h_new, 3c_new, 4 [4]");
+                WriteLine(" -p <parameter type>  Model type: 3h, 3h_new, 3c_new, 4, 5 [4]");
                 WriteLine(" --skip n             Skip n header records [0]");
                 WriteLine(" --x-col <integer col num 1-based>  Set X column number [1]");
                 WriteLine(" --y-col <integer col num 1-based>  Set Y column number [2]");
                 WriteLine();
                 WriteLine("It is assumed that the first column is X and the second column is Y.");
                 WriteLine("The default delimiter is whitespace.");
+                WriteLine("The file can be '-' to read from standard input.");
                 return;
             }
 
@@ -93,10 +94,24 @@ namespace cpmodel
             }
             else
             {
-                data = File.ReadAllLines(Path.GetFullPath(filename), Encoding.UTF8);
-            }
+                if (string.IsNullOrWhiteSpace(filename))
+                {
+                    Console.Error.WriteLine("No input file was specified. Use '-' for standard input.");
+                    Environment.Exit(1);
+                    return;
+                }
 
-            XTransformer transformer = new();
+                try
+                {
+                    data = File.ReadAllLines(Path.GetFullPath(filename), Encoding.UTF8);
+                }
+                catch
+                {
+                    Console.Error.WriteLine("Could not read input file '{filename}'.");
+                    Environment.Exit(1);
+                    return;
+                }
+            }
 
             bool success = true;
             List<string> errors = [];
@@ -143,7 +158,7 @@ namespace cpmodel
             // Fail if no data
             if (!pointData.Any())
             {
-                Console.Error.Write("No data found.");
+                Console.Error.WriteLine("No data found.");
                 Environment.Exit(1);
                 return;
             }
@@ -199,7 +214,6 @@ namespace cpmodel
                         WriteLine(outputsCoeff);
                     }
                 }
-
             }
             else if (type == "4")
             {
@@ -209,6 +223,33 @@ namespace cpmodel
                 WriteLine(output.regOutputs.Coeffs[1]);
                 WriteLine(output.regOutputs.Coeffs[2]);
                 WriteLine(output.cp);
+            }
+            else if (type == "5")
+            {
+                (double lowCp, double highCp, RegressionOutputs regOutputs) = runner.Run5P(pointData);
+
+                if (printModelCoords)
+                {
+                    var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
+                    var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
+
+                    double yAtXmin = regOutputs.Coeffs[0] + (lowCp - minXValue) * regOutputs.Coeffs[1];
+                    double yAtLowCp = regOutputs.Coeffs[0];
+                    double yAtXmax = regOutputs.Coeffs[0] + (maxXValue - highCp) * regOutputs.Coeffs[1];
+
+                    WriteLine($"{minXValue}\t{yAtXmin}");
+                    WriteLine($"{lowCp}\t{yAtLowCp}");
+                    WriteLine($"{highCp}\t{yAtLowCp}");
+                    WriteLine($"{maxXValue}\t{yAtXmax}");
+                }
+                else
+                {
+                    WriteLine(regOutputs.Coeffs[0]);
+                    WriteLine(regOutputs.Coeffs[1]);
+                    WriteLine(regOutputs.Coeffs[2]);
+                    WriteLine(lowCp);
+                    WriteLine(highCp);
+                }
             }
             else
             {
@@ -235,12 +276,24 @@ namespace cpmodel
             return [Math.Max(0, cp - x), Math.Max(0, x - cp)];
         }
 
-        public List<double> TransformedX3PH(double cp, double x) => new(){ Math.Max(cp - x, 0) };
+        public List<double> TransformedX5P(double lowCp, double highCp, double x)
+        {
+            return [Math.Max(0, lowCp - x), Math.Max(0, x - highCp)];
+        }
+
+        public List<double> TransformedX3PH(double cp, double x) => [Math.Max(cp - x, 0)];
     }
 
 
     public class ModelRunner
     {
+        public RegressionOutputs RunInstance(List<Observation> observations)
+        {
+            double[] ys = observations.Select(observation => observation.Y).ToArray();
+            double[,] transformedXs = observations.Select(observation => observation.Xs).ToList().To2DArray();
+            return Regression.MultipleLinearRegression(ys, transformedXs, false);
+        }
+
         public RegressionOutputs Run4PInstance(double cp, List<Point> points)
         {
             XTransformer transformer = new();
@@ -296,6 +349,36 @@ namespace cpmodel
             List<(double, RegressionOutputs)> sorted = outputs.OrderBy(tuple => tuple.Item2.CV).ToList();
             return sorted[0];
         }
+
+        public (double lowCp, double highCp, RegressionOutputs regressionOutputs) Run5P(List<Point> points)
+        {
+            double minX = points.Select(point => point.X).Min();
+            double maxX = points.Select(point => point.X).Max();
+
+            double minSearch = Math.Ceiling(minX + 0.0001);
+            double maxSearch = Math.Floor(maxX - 0.0001);
+
+            double ChangePointStepSize = 0.125;
+
+            var outputs = new List<(double lowCp, double highCp, RegressionOutputs regressionOutput)>();
+            for (double lowChangepoint = minSearch; lowChangepoint < maxSearch - ChangePointStepSize; lowChangepoint += ChangePointStepSize)
+            {
+                for (double highChangepoint = lowChangepoint + ChangePointStepSize; highChangepoint < maxSearch; highChangepoint += ChangePointStepSize)
+                {
+                    var observations = points.Select(point => new Observation([Math.Max(lowChangepoint - point.X, 0), Math.Max(point.X - highChangepoint, 0)], point.Y)).ToList();
+                    var output = RunInstance(observations);
+                    outputs.Add((lowChangepoint, highChangepoint, output));
+                }
+            }
+
+            /*
+            List<double> cps = new RangeBuilder().BuildList(minSearch, maxSearch, 0.125);
+            List<(double, RegressionOutputs)> outputs = cps.Select(cp => (cp, Run4PInstance(cp, points))).ToList();
+            */
+            List<(double, double, RegressionOutputs)> sorted = outputs.OrderBy(tuple => tuple.regressionOutput.CV).ToList();
+            return sorted[0];
+        }
+
 
         public RegressionOutputs Run3PHNew(List<Point> points)
         {
