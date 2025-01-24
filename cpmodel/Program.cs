@@ -217,12 +217,29 @@ namespace cpmodel
             }
             else if (type == "4")
             {
-                (double cp, RegressionOutputs regOutputs) output = runner.Run4P(pointData);
+                (double cp, RegressionOutputs regOutputs) = runner.Run4P(pointData);
 
-                WriteLine(output.regOutputs.Coeffs[0]);
-                WriteLine(output.regOutputs.Coeffs[1]);
-                WriteLine(output.regOutputs.Coeffs[2]);
-                WriteLine(output.cp);
+                if (printModelCoords)
+                {
+                    var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
+                    var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
+
+                    double yAtXmin = regOutputs.Coeffs[0] + (cp - minXValue) * regOutputs.Coeffs[1];
+                    double yAtCp = regOutputs.Coeffs[0];
+                    double yAtXmax = regOutputs.Coeffs[0] + (maxXValue - cp) * regOutputs.Coeffs[1];
+
+                    WriteLine($"{minXValue}\t{yAtXmin}");
+                    WriteLine($"{cp}\t{yAtCp}");
+                    WriteLine($"{maxXValue}\t{yAtXmax}");
+                }
+                else
+                {
+                    WriteLine(regOutputs.Coeffs[0]);
+                    WriteLine(regOutputs.Coeffs[1]);
+                    WriteLine(regOutputs.Coeffs[2]);
+                    WriteLine(cp);
+                }
+
             }
             else if (type == "5")
             {
