@@ -99,7 +99,7 @@ namespace cpmodel
             XTransformer transformer = new();
 
             bool success = true;
-            List<string> errors = new();
+            List<string> errors = [];
             List<Point> pointData = data.Skip(skipRows).Select((s, idx) =>
             {
                 string[] split = delimeter is null ? s.Split() : s.Split(delimeter);
@@ -232,7 +232,7 @@ namespace cpmodel
     {
         public List<double> TransformedX4P(double cp, double x)
         {
-            return new() { Math.Max(0, cp - x), Math.Max(0, x - cp) };
+            return [Math.Max(0, cp - x), Math.Max(0, x - cp)];
         }
 
         public List<double> TransformedX3PH(double cp, double x) => new(){ Math.Max(cp - x, 0) };
@@ -337,7 +337,7 @@ namespace cpmodel
                 var tempPortion = xs.Select(x => Math.Max(b2 - x, 0));
                 var predictions = tempPortion.Select(d => b0 + b1 * d).ToList();
 
-                List<double> residuals = new();
+                List<double> residuals = [];
                 for (int i = 0; i < n; i++) residuals.Add(ys[i] - predictions[i]);
 
                 var newSse = residuals.Select(r => r * r).Sum();
@@ -353,7 +353,7 @@ namespace cpmodel
 
             RegressionOutputs outputs = new()
             {
-                Coeffs = new[] { bestb0, bestb1, bestb2 }
+                Coeffs = [bestb0, bestb1, bestb2]
             };
             return outputs;
         }
@@ -402,7 +402,7 @@ namespace cpmodel
                 IEnumerable<double> tempPortion = xs.Select(x => Math.Max(x - b2, 0));
                 List<double> predictions = tempPortion.Select(d => b0 + b1 * d).ToList();
 
-                List<double> residuals = new();
+                List<double> residuals = [];
                 for (int i = 0; i < n; i++) residuals.Add(ys[i] - predictions[i]);
 
                 double newSse = residuals.Select(r => r * r).Sum();
@@ -418,7 +418,7 @@ namespace cpmodel
 
             RegressionOutputs outputs = new()
             {
-                Coeffs = new[] { bestb0, bestb1, bestb2 }
+                Coeffs = [bestb0, bestb1, bestb2]
             };
             return outputs;
         }
@@ -429,7 +429,7 @@ namespace cpmodel
     {
         public List<double> BuildList(double min, double max, double step)
         {
-            List<double> list = new();
+            List<double> list = [];
 
             double val = min;
 
@@ -466,7 +466,7 @@ namespace cpmodel
         }
         public static List<string> SplitLines(this string input)
         {
-            List<string> output = new List<string>();
+            List<string> output = [];
             using (StringReader sr = new StringReader(input)) {
                 string line;
                 while ((line = sr.ReadLine()) != null)
