@@ -10,7 +10,7 @@ namespace cpmodel
 {
     class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
             string filename = "";
             string type = "4";
@@ -84,7 +84,7 @@ namespace cpmodel
                 WriteLine("It is assumed that the first column is X and the second column is Y.");
                 WriteLine("The default delimiter is whitespace.");
                 WriteLine("The file can be '-' to read from standard input.");
-                return;
+                return 0;
             }
 
             IEnumerable<string> data;
@@ -97,8 +97,7 @@ namespace cpmodel
                 if (string.IsNullOrWhiteSpace(filename))
                 {
                     Console.Error.WriteLine("No input file was specified. Use '-' for standard input.");
-                    Environment.Exit(1);
-                    return;
+                    return 1;
                 }
 
                 try
@@ -108,8 +107,7 @@ namespace cpmodel
                 catch
                 {
                     Console.Error.WriteLine("Could not read input file '{filename}'.");
-                    Environment.Exit(1);
-                    return;
+                    return 1;
                 }
             }
 
@@ -151,16 +149,14 @@ namespace cpmodel
                     Console.Error.Write("...\n");
                 }
 
-                Environment.Exit(1);
-                return;
+                return 1;
             }
 
             // Fail if no data
             if (!pointData.Any())
             {
                 Console.Error.WriteLine("No data found.");
-                Environment.Exit(1);
-                return;
+                return 1;
             }
 
             ModelRunner runner = new();
@@ -271,8 +267,10 @@ namespace cpmodel
             else
             {
                 WriteLine($"The model type '{type}' has not been implemented.");
-                return;
+                return 1;
             }
+
+            return 0;
         }
 
         public static void WriteLine() => Console.Write('\n');
