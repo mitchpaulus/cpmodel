@@ -4,6 +4,7 @@ using System.IO;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using mlr;
 
 namespace cpmodel
@@ -17,6 +18,7 @@ namespace cpmodel
 
             bool printModelCoords = false;
             bool printHelp = false;
+            bool json = false;
 
             int skipRows = 0;
             int xColumn = 0;
@@ -58,6 +60,10 @@ namespace cpmodel
                 {
                     delimeter = args[i + 1];
                     i++;
+                }
+                else if (args[i] == "--json")
+                {
+                    json = true;
                 }
                 else
                 {
@@ -163,17 +169,32 @@ namespace cpmodel
             if (type == "3h")
             {
                 (double cp, RegressionOutputs regressionOutputs) = runner.Run3PH(pointData);
-                foreach (double coeff in regressionOutputs.Coeffs)
+
+                if (json)
                 {
-                    WriteLine(coeff);
+                    string jsonStr = JsonSerializer.Serialize(regressionOutputs);
+                    Console.Write(jsonStr);
                 }
-                WriteLine(cp);
+                else
+                {
+                    foreach (double coeff in regressionOutputs.Coeffs)
+                    {
+                        WriteLine(coeff);
+                    }
+                    WriteLine(cp);
+                }
+
             }
             else if (type == "3h_new")
             {
                 RegressionOutputs outputs = runner.Run3PHNew(pointData);
 
-                if (printModelCoords)
+                if (json)
+                {
+                    string jsonStr = JsonSerializer.Serialize(outputs);
+                    Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
                 {
                     var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
                     var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
@@ -194,7 +215,12 @@ namespace cpmodel
             {
                 RegressionOutputs outputs = runner.Run3PCNew(pointData);
 
-                if (printModelCoords)
+                if (json)
+                {
+                    string jsonStr = JsonSerializer.Serialize(outputs);
+                    Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
                 {
                     var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
                     var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
@@ -215,7 +241,12 @@ namespace cpmodel
             {
                 (double cp, RegressionOutputs regOutputs) = runner.Run4P(pointData);
 
-                if (printModelCoords)
+                if (json)
+                {
+                    string jsonStr = JsonSerializer.Serialize(regOutputs);
+                    Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
                 {
                     var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
                     var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
@@ -241,7 +272,12 @@ namespace cpmodel
             {
                 (double lowCp, double highCp, RegressionOutputs regOutputs) = runner.Run5P(pointData);
 
-                if (printModelCoords)
+                if (json)
+                {
+                    string jsonStr = JsonSerializer.Serialize(regOutputs);
+                    Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
                 {
                     var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
                     var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
@@ -397,7 +433,7 @@ namespace cpmodel
 
         public RegressionOutputs Run3PHNew(List<Point> points)
         {
-            var sortedPoints = points.OrderBy(point => point.X);
+            var sortedPoints = points.OrderBy(point => point.X).ToList();
 
             var ys = sortedPoints.Select(point => point.Y).ToList();
             var xs = sortedPoints.Select(point => point.X).ToList();
