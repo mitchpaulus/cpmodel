@@ -222,7 +222,7 @@ namespace cpmodel
 
                     double yAtXmin = regOutputs.Coeffs[0] + (cp - minXValue) * regOutputs.Coeffs[1];
                     double yAtCp = regOutputs.Coeffs[0];
-                    double yAtXmax = regOutputs.Coeffs[0] + (maxXValue - cp) * regOutputs.Coeffs[1];
+                    double yAtXmax = regOutputs.Coeffs[0] + (maxXValue - cp) * regOutputs.Coeffs[2];
 
                     WriteLine($"{minXValue}\t{yAtXmin}");
                     WriteLine($"{cp}\t{yAtCp}");
