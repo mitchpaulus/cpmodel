@@ -82,10 +82,11 @@ namespace cpmodel
                 WriteLine();
                 WriteLine(" -c                   Print model coordinates, not coefficients");
                 WriteLine(" -d <delimiter>       Delimiter to split lines by [whitespace]"      );
+                WriteLine(" --json               Print outputs in JSON format");
                 WriteLine(" -p <parameter type>  Model type: 3h, 3h_new, 3c_new, 4, 5 [4]");
                 WriteLine(" --skip n             Skip n header records [0]");
-                WriteLine(" --x-col <integer col num 1-based>  Set X column number [1]");
-                WriteLine(" --y-col <integer col num 1-based>  Set Y column number [2]");
+                WriteLine(" --x-col <int col>    Set X column number, 1-based integer [1]");
+                WriteLine(" --y-col <int col>    Set Y column number, 1-based integer [2]");
                 WriteLine();
                 WriteLine("It is assumed that the first column is X and the second column is Y.");
                 WriteLine("The default delimiter is whitespace.");
