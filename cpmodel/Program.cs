@@ -169,12 +169,53 @@ namespace cpmodel
             ModelRunner runner = new();
             if (type == "3h")
             {
-                (double cp, RegressionOutputs regressionOutputs) = runner.Run3PH(pointData);
+                (double cp, RegressionOutputs outputs) = runner.Run3PH(pointData);
 
                 if (json)
                 {
-                    string jsonStr = JsonSerializer.Serialize(regressionOutputs);
+                    var dict = outputs.ToJsonDict();
+                    (dict["Coeffs"] as List<double>)?.Add(cp);
+                    string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
+                {
+                    var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
+                    var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
+
+                    WriteLine($"{minXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * Math.Min(0, cp - minXValue)}");
+                    WriteLine($"{cp}\t{outputs.Coeffs[0]}");
+                    WriteLine($"{maxXValue}\t{outputs.Coeffs[0]}");
+                }
+                else
+                {
+                    foreach (double coeff in outputs.Coeffs)
+                    {
+                        WriteLine(coeff);
+                    }
+                    WriteLine(cp);
+                }
+
+            }
+            else if (type == "3c")
+            {
+                (double cp, RegressionOutputs regressionOutputs) = runner.Run3PC(pointData);
+
+                if (json)
+                {
+                    var dict = regressionOutputs.ToJsonDict();
+                    (dict["Coeffs"] as List<double>)?.Add(cp);
+                    string jsonStr = JsonSerializer.Serialize(dict);
+                    Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
+                {
+                    var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
+                    var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
+
+                    WriteLine($"{minXValue}\t{regressionOutputs.Coeffs[0]}");
+                    WriteLine($"{cp}\t{regressionOutputs.Coeffs[0]}");
+                    WriteLine($"{maxXValue}\t{regressionOutputs.Coeffs[0] + regressionOutputs.Coeffs[1] * (maxXValue - cp)}");
                 }
                 else
                 {
@@ -184,7 +225,6 @@ namespace cpmodel
                     }
                     WriteLine(cp);
                 }
-
             }
             else if (type == "3h_new")
             {
@@ -244,7 +284,9 @@ namespace cpmodel
 
                 if (json)
                 {
-                    string jsonStr = JsonSerializer.Serialize(regOutputs);
+                    var dict = regOutputs.ToJsonDict();
+                    (dict["Coeffs"] as List<double>)?.Add(cp);
+                    string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
                 else if (printModelCoords)
@@ -275,7 +317,10 @@ namespace cpmodel
 
                 if (json)
                 {
-                    string jsonStr = JsonSerializer.Serialize(regOutputs);
+                    var dict = regOutputs.ToJsonDict();
+                    (dict["Coeffs"] as List<double>)?.Add(lowCp);
+                    (dict["Coeffs"] as List<double>)?.Add(highCp);
+                    string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
                 else if (printModelCoords)
@@ -303,7 +348,7 @@ namespace cpmodel
             }
             else
             {
-                WriteLine($"The model type '{type}' has not been implemented.");
+                WriteLineError($"The model type '{type}' has not been implemented.");
                 return 1;
             }
 
@@ -316,6 +361,12 @@ namespace cpmodel
         {
             if (!text.Any() || text.Last() != '\n') Console.Write($"{text}\n");
             else Console.Write(text);
+        }
+
+        public static void WriteLineError(string text)
+        {
+            if (!text.Any() || text.Last() != '\n') Console.Error.Write($"{text}\n");
+            else Console.Error.Write(text);
         }
 
         public static void WriteLine(double value) => WriteLine(value.ToString(CultureInfo.CurrentCulture));
@@ -334,6 +385,7 @@ namespace cpmodel
         }
 
         public List<double> TransformedX3PH(double cp, double x) => [Math.Max(cp - x, 0)];
+        public List<double> TransformedX3PC(double cp, double x) => [Math.Max(x - cp, 0)];
     }
 
 
@@ -387,15 +439,55 @@ namespace cpmodel
             return sorted[0];
         }
 
+        public RegressionOutputs Run3PCInstance(double cp, List<Point> points)
+        {
+            XTransformer transformer = new();
+
+            List<Observation> transformed = points
+                .Select(point => new Observation(transformer.TransformedX3PC(cp, point.X), point.Y))
+                .ToList();
+
+            double[] ys = transformed.Select(observation => observation.Y).ToArray();
+            double[,] transformedXs = transformed.Select(observation => observation.Xs).ToList().To2DArray();
+
+            return Regression.MultipleLinearRegression(ys, transformedXs, false);
+        }
+
+        public (double cp, RegressionOutputs regressionOutputs) Run3PC(List<Point> points)
+        {
+            var sortedXs = points.Select(point => point.X).OrderBy(d => d).ToList();
+
+            double minSearch = Math.Ceiling(sortedXs.Skip(1).First());
+            double maxSearch = Math.Floor(sortedXs.SkipLast(2).Last());
+
+            List<double> cps = new RangeBuilder().BuildList(minSearch, maxSearch, 0.125);
+
+            List<(double, RegressionOutputs)> outputs = cps.Select(cp => (cp, Run3PCInstance(cp, points))).ToList();
+            List<(double, RegressionOutputs)> sorted = outputs.OrderBy(tuple => tuple.Item2.CV).ToList();
+            return sorted[0];
+        }
+
+
+
         public (double cp, RegressionOutputs regressionOutputs) Run4P(List<Point> points)
         {
+            double step = 0.125;
             double minX = points.Select(point => point.X).Min();
             double maxX = points.Select(point => point.X).Max();
 
             double minSearch = Math.Ceiling(minX);
-            double maxSearch = Math.Floor(maxX);
+            if (Math.Abs(minX - minSearch) < 0.0000000001)
+            {
+                minSearch += step;
+            }
 
-            List<double> cps = new RangeBuilder().BuildList(minSearch, maxSearch, 0.125);
+            double maxSearch = Math.Floor(maxX);
+            if (Math.Abs(maxX - maxSearch) < 0.0000000001)
+            {
+                maxSearch -= step;
+            }
+
+            List<double> cps = new RangeBuilder().BuildList(minSearch, maxSearch, step);
             List<(double, RegressionOutputs)> outputs = cps.Select(cp => (cp, Run4PInstance(cp, points))).ToList();
 
             List<(double, RegressionOutputs)> sorted = outputs.OrderBy(tuple => tuple.Item2.CV).ToList();

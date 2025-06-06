@@ -56,11 +56,11 @@ namespace mlr
         }
 
         /// <summary>
-        /// MultipleLinearRegression runs a MLR on y and x data.  A column of 1's is added for a constant value.  
+        /// MultipleLinearRegression runs a MLR on y and x data.  A column of 1's is added for a constant value.
         /// </summary>
         /// <param name="y">1-D array of double dependent variable values</param>
         /// <param name="x">n x p array of independent variable observations.  Do not add a column of 1's</param>
-        /// <param name="advancedStats">true will return: 
+        /// <param name="advancedStats">true will return:
         ///                                 predictions
         ///                                 residuals
         ///                                 standardized residuals
@@ -280,7 +280,7 @@ namespace mlr
 
 
     /// <summary>
-    /// This class holds all the coefficients and statistics for multiple linear regression. Used 
+    /// This class holds all the coefficients and statistics for multiple linear regression. Used
     /// mostly with Validator.
     /// </summary>
     public class RegressionOutputs
@@ -385,5 +385,26 @@ namespace mlr
             return newOutputs;
         }
 
+        public Dictionary<string, object> ToJsonDict()
+        {
+            Dictionary<string, object> d = new();
+
+            d["Coeffs"] = Coeffs?.ToList() ?? new List<double>();
+            d["Rsquared"] = Rsquared;
+            d["AdjRsquared"] = AdjRsquared;
+            d["StandardError"] = StandardError;
+            d["Tstats"] = Tstats?.ToList() ?? new List<double>();
+            d["CoeffsStandardErrors"] = CoeffsStandardErrors?.ToList() ?? new List<double>();
+            d["CV"] = CV;
+            d["NMBE"] = NMBE;
+            d["Yhat"] = Yhat?.ToList() ?? new List<double>();
+            d["Residuals"] = Residuals?.ToList() ?? new List<double>();
+            d["StandResiduals"] = StandResiduals?.ToList() ?? new List<double>();
+            d["Fstatistic"] = Fstatistic;
+            d["CooksDistance"] = CooksDistance?.ToList() ?? new List<double>();
+
+            return d;
+        }
     }
+
 }
