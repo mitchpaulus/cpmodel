@@ -240,7 +240,7 @@ namespace cpmodel
                     var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
                     var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
 
-                    WriteLine($"{minXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * Math.Min(0, outputs.Coeffs[2] - minXValue)}");
+                    WriteLine($"{minXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * Math.Max(0, outputs.Coeffs[2] - minXValue)}");
                     WriteLine($"{outputs.Coeffs[2]}\t{outputs.Coeffs[0]}");
                     WriteLine($"{maxXValue}\t{outputs.Coeffs[0]}");
                 }
