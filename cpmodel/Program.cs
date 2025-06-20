@@ -175,6 +175,7 @@ namespace cpmodel
                 {
                     var dict = outputs.ToJsonDict();
                     (dict["Coeffs"] as List<double>)?.Add(cp);
+                    dict["lambda"] = $"=LAMBDA(oat, {outputs.Coeffs[0]} + {outputs.Coeffs[1]} * MAX(0, {cp} - oat))";
                     string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
@@ -205,6 +206,7 @@ namespace cpmodel
                 {
                     var dict = regressionOutputs.ToJsonDict();
                     (dict["Coeffs"] as List<double>)?.Add(cp);
+                    dict["lambda"] = $"=LAMBDA(oat, {regressionOutputs.Coeffs[0]} + {regressionOutputs.Coeffs[1]} * MAX(0, oat - {cp}))";
                     string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
@@ -232,7 +234,9 @@ namespace cpmodel
 
                 if (json)
                 {
-                    string jsonStr = JsonSerializer.Serialize(outputs);
+                    var dict = outputs.ToJsonDict();
+                    dict["lambda"] = $"=LAMBDA(oat, {outputs.Coeffs[0]} + {outputs.Coeffs[1]} * MAX(0, {outputs.Coeffs[2]} - oat))";
+                    string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
                 else if (printModelCoords)
@@ -258,6 +262,8 @@ namespace cpmodel
 
                 if (json)
                 {
+                    var dict = outputs.ToJsonDict();
+                    dict["lambda"] = $"=LAMBDA(oat, {outputs.Coeffs[0]} + {outputs.Coeffs[1]} * MAX(0, oat - {outputs.Coeffs[2]}))";
                     string jsonStr = JsonSerializer.Serialize(outputs);
                     Console.Write(jsonStr);
                 }
@@ -281,11 +287,13 @@ namespace cpmodel
             else if (type == "4")
             {
                 (double cp, RegressionOutputs regOutputs) = runner.Run4P(pointData);
+                string lambda = $"=LAMBDA(oat, {regOutputs.Coeffs[0]} + {regOutputs.Coeffs[1]} * MAX(0, {cp} - oat) + {regOutputs.Coeffs[2]} * MAX(0, oat - {cp}))";
 
                 if (json)
                 {
                     var dict = regOutputs.ToJsonDict();
                     (dict["Coeffs"] as List<double>)?.Add(cp);
+                    dict["lambda"] = lambda;
                     string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
@@ -320,6 +328,7 @@ namespace cpmodel
                     var dict = regOutputs.ToJsonDict();
                     (dict["Coeffs"] as List<double>)?.Add(lowCp);
                     (dict["Coeffs"] as List<double>)?.Add(highCp);
+                    dict["lambda"] = $"=LAMBDA(oat, {regOutputs.Coeffs[0]} + {regOutputs.Coeffs[1]} * MAX(0, {lowCp} - oat) + {regOutputs.Coeffs[2]} * MAX(0, oat - {highCp}))";
                     string jsonStr = JsonSerializer.Serialize(dict);
                     Console.Write(jsonStr);
                 }
