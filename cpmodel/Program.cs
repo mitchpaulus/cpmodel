@@ -418,7 +418,7 @@ namespace cpmodel
             double[] ys = transformed.Select(observation => observation.Y).ToArray();
             double[,] transformedXs = transformed.Select(observation => observation.Xs).ToList().To2DArray();
 
-            return Regression.MultipleLinearRegression(ys, transformedXs, false);
+            return Regression.MultipleLinearRegression(ys, transformedXs, true);
         }
 
         public RegressionOutputs Run3PHInstance(double cp, List<Point> points)
@@ -432,7 +432,7 @@ namespace cpmodel
             double[] ys = transformed.Select(observation => observation.Y).ToArray();
             double[,] transformedXs = transformed.Select(observation => observation.Xs).ToList().To2DArray();
 
-            return Regression.MultipleLinearRegression(ys, transformedXs, false);
+            return Regression.MultipleLinearRegression(ys, transformedXs, true);
         }
 
         public (double cp, RegressionOutputs regressionOutputs) Run3PH(List<Point> points)
@@ -460,7 +460,7 @@ namespace cpmodel
             double[] ys = transformed.Select(observation => observation.Y).ToArray();
             double[,] transformedXs = transformed.Select(observation => observation.Xs).ToList().To2DArray();
 
-            return Regression.MultipleLinearRegression(ys, transformedXs, false);
+            return Regression.MultipleLinearRegression(ys, transformedXs, true);
         }
 
         public (double cp, RegressionOutputs regressionOutputs) Run3PC(List<Point> points)
@@ -597,7 +597,7 @@ namespace cpmodel
 
         public RegressionOutputs Run3PCNew(List<Point> points)
         {
-            IOrderedEnumerable<Point> sortedPoints = points.OrderBy(point => point.X);
+            List<Point> sortedPoints = points.OrderBy(point => point.X).ToList();
 
             List<double> ys = sortedPoints.Select(point => point.Y).ToList();
             List<double> xs = sortedPoints.Select(point => point.X).ToList();
@@ -653,9 +653,15 @@ namespace cpmodel
                 }
             }
 
+            double yAve = sumY / n;
+
+            double standardError = Math.Sqrt(sse / (n - 3));
+
             RegressionOutputs outputs = new()
             {
-                Coeffs = [bestb0, bestb1, bestb2]
+                Coeffs = [bestb0, bestb1, bestb2],
+                CV = standardError / yAve,
+                StandardError = standardError,
             };
             return outputs;
         }
