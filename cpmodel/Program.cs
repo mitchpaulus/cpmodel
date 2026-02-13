@@ -739,7 +739,7 @@ namespace cpmodel
             ];
 
             // https://statproofbook.github.io/P/fstat-rsq.html
-            double fStatistic = rSquared < 1 ? rSquared / (1 - rSquared) * (n - 2) : double.MaxValue;
+            double fStatistic = rSquared < 1 && n > 2 ? rSquared / (1 - rSquared) * (n - 2) : double.MaxValue;
 
             return new RegressionOutputs
             {
