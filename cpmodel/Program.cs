@@ -83,7 +83,7 @@ namespace cpmodel
                 WriteLine(" -c                       Print model coordinates, not coefficients");
                 WriteLine(" -d, --delimeter <delim>  Delimiter to split lines by [whitespace]");
                 WriteLine(" --json                   Print outputs in JSON format");
-                WriteLine(" -p <model type>          Model type: 3h, 3c, 3h_new, 3c_new, 4, 5 [4]");
+                WriteLine(" -p <model type>          Model type: 2p, 3h, 3c, 3h_new, 3c_new, 4, 5 [4]");
                 WriteLine(" --skip n                 Skip n header records [0]");
                 WriteLine(" --x-col <int col>        Set X column number, 1-based integer [1]");
                 WriteLine(" --y-col <int col>        Set Y column number, 1-based integer [2]");
@@ -168,7 +168,34 @@ namespace cpmodel
             }
 
             ModelRunner runner = new();
-            if (type == "3h")
+            if (type == "2p")
+            {
+                RegressionOutputs outputs = runner.Run2P(pointData);
+
+                if (json)
+                {
+                    var dict = outputs.ToJsonDict();
+                    dict["lambda"] = $"=LAMBDA(oat, {outputs.Coeffs[0]} + {outputs.Coeffs[1]} * oat)";
+                    string jsonStr = JsonSerializer.Serialize(dict);
+                    Console.Write(jsonStr);
+                }
+                else if (printModelCoords)
+                {
+                    var minXValue = Math.Floor(pointData.Select(point => point.X).Min());
+                    var maxXValue = Math.Ceiling(pointData.Select(point => point.X).Max());
+
+                    WriteLine($"{minXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * minXValue}");
+                    WriteLine($"{maxXValue}\t{outputs.Coeffs[0] + outputs.Coeffs[1] * maxXValue}");
+                }
+                else
+                {
+                    foreach (double coeff in outputs.Coeffs)
+                    {
+                        WriteLine(coeff);
+                    }
+                }
+            }
+            else if (type == "3h")
             {
                 (double cp, RegressionOutputs outputs) = runner.Run3PH(pointData);
 
@@ -664,6 +691,72 @@ namespace cpmodel
                 StandardError = standardError,
             };
             return outputs;
+        }
+
+        public RegressionOutputs Run2P(List<Point> points)
+        {
+            if (points.Count < 2)
+                throw new ArgumentException("At least 2 points are required for simple linear regression.");
+
+            int n = points.Count;
+            double sumX = points.Select(p => p.X).Sum();
+            double sumY = points.Select(p => p.Y).Sum();
+            double sumXY = points.Select(p => p.X * p.Y).Sum();
+            double sumX2 = points.Select(p => p.X * p.X).Sum();
+
+            double xMean = sumX / n;
+            double yMean = sumY / n;
+
+            double b1 = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            double b0 = yMean - b1 * xMean;
+
+            double ssYY = points.Select(p => (p.Y - yMean) * (p.Y - yMean)).Sum();
+            double sse = points.Select(p =>
+            {
+                double pred = b0 + b1 * p.X;
+                return (p.Y - pred) * (p.Y - pred);
+            }).Sum();
+
+            double standardError = Math.Sqrt(sse / (n - 2));
+            double rSquared = ssYY > 0 ? 1 - (sse / ssYY) : 1;
+            double adjRsquared = 1 - (((double)(n - 1)) / (n - 2)) * (1 - rSquared);
+
+            double[] predictions = points.Select(p => b0 + b1 * p.X).ToArray();
+            double[] residuals = points.Select((p, i) => p.Y - predictions[i]).ToArray();
+
+            double residMean = residuals.Average();
+            double residStdDev = Math.Sqrt(residuals.Select(r => (r - residMean) * (r - residMean)).Sum() / (n - 1));
+            double[] standResiduals = residuals.Select(r => residStdDev > 0 ? r / residStdDev : 0).ToArray();
+
+            double det = n * sumX2 - sumX * sumX;
+            double[] coeffsStandardErrors = [
+                standardError * Math.Sqrt(sumX2 / det),
+                standardError * Math.Sqrt(n / det),
+            ];
+            double[] tstats = [
+                coeffsStandardErrors[0] > 0 ? b0 / coeffsStandardErrors[0] : 0,
+                coeffsStandardErrors[1] > 0 ? b1 / coeffsStandardErrors[1] : 0,
+            ];
+
+            // https://statproofbook.github.io/P/fstat-rsq.html
+            double fStatistic = rSquared < 1 ? rSquared / (1 - rSquared) * (n - 2) : double.MaxValue;
+
+            return new RegressionOutputs
+            {
+                Coeffs = [b0, b1],
+                StandardError = standardError,
+                CV = standardError / yMean,
+                Rsquared = rSquared,
+                AdjRsquared = adjRsquared,
+                NMBE = 0,
+                Yhat = predictions,
+                Residuals = residuals,
+                StandResiduals = standResiduals,
+                CoeffsStandardErrors = coeffsStandardErrors,
+                Tstats = tstats,
+                Fstatistic = fStatistic,
+                Ydata = points.Select(p => p.Y).ToArray(),
+            };
         }
 
     }
